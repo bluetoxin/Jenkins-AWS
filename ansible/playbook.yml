@@ -1,0 +1,47 @@
+---
+
+- name: Initial Steps
+  hosts: all
+  become: yes
+  tasks:
+    - name: Ensure necessary packages are installed
+      ansible.builtin.apt:
+        name: 
+          - docker.io
+          - pip
+        update_cache: yes
+    - name: Ensure Docker SDK for Python is installed
+      ansible.builtin.pip:
+        name: docker 
+
+- name: Run Jenkins Agents
+  hosts: agents
+  become: yes
+  tasks:
+    - name: Ensure jenkins-agent container is running
+      community.docker.docker_container:
+        name: jenkins-agent 
+        image: jenkins/ssh-agent:jdk11
+        state: started
+        volumes:
+          - "{{ansible_user_dir}}/jenkins_agent:/home/jenkins/agent"
+
+- name: Run Jenkins Controller
+  hosts: controller
+  become: yes
+  tasks:
+    - name: Ensure jenkins-home dicrectory is created
+      ansible.builtin.file:
+        name: "{{ansible_user_dir}}/jenkins_home"
+        state: directory
+        mode: "0777"
+    - name: Ensure jenkins container is running
+      community.docker.docker_container:
+        name: jenkins 
+        image: jenkins/jenkins:lts
+        state: started
+        volumes:
+          - "{{ansible_user_dir}}/jenkins_home:/var/jenkins_home"
+        published_ports:
+          - "8080:8080"
+          - "50000:50000"
